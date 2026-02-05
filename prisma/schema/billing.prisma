@@ -1,0 +1,48 @@
+model Tax {
+  id         Int     @id @default(autoincrement())
+  name       String
+  percentage Decimal @db.Decimal(5, 2)
+
+  @@map("taxes")
+}
+
+model Discount {
+  id         String       @id @default(cuid())
+  code       String       @unique
+  type       DiscountType
+  value      Decimal      @db.Decimal(12, 2)
+  validFrom  DateTime     @map("valid_from")
+  validUntil DateTime     @map("valid_until")
+
+  @@map("discounts")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  subscriptionId String        @map("subscription_id")
+  invoiceNumber  String        @unique @map("invoice_number")
+  billingPeriod  DateTime      @map("billing_period") @db.Date
+  dueDate        DateTime      @map("due_date") @db.Date
+  amountBasic    Decimal       @map("amount_basic") @db.Decimal(12, 2)
+  amountTax      Decimal       @map("amount_tax") @db.Decimal(12, 2)
+  amountDiscount Decimal       @default(0) @map("amount_discount") @db.Decimal(12, 2)
+  penaltyFee     Decimal       @default(0) @map("penalty_fee") @db.Decimal(12, 2)
+  totalAmount    Decimal       @map("total_amount") @db.Decimal(12, 2)
+  status         InvoiceStatus @default(UNPAID)
+  subscription   Subscriptions @relation(fields: [subscriptionId], references: [id])
+  payments       Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id                  BigInt   @id @default(autoincrement())
+  invoiceId           String   @map("invoice_id")
+  paymentMethod       String   @map("payment_method")
+  paymentGatewayTrxId String?  @map("payment_gateway_trx_id")
+  paidAt              DateTime @default(now()) @map("paid_at")
+  amountPaid          Decimal  @map("amount_paid") @db.Decimal(12, 2)
+  invoice             Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}

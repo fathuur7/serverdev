@@ -1,0 +1,50 @@
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String             @map("password_hash")
+  role              Role               @default(CUSTOMER)
+  status            UserStatus         @default(ACTIVE)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  emailVerified     Boolean            @default(false) @map("email_verified")
+  otp               String?
+  otpExpiresAt      DateTime?          @map("otp_expires_at")
+  activityLogs      ActivityLog[]      @relation("LogActor")
+  customerProfile   CustomerProfile?
+  refreshTokens     RefreshToken[]
+  technicianProfile TechnicianProfile?
+  createdTickets    Ticket[]           @relation("TicketCreator")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model CustomerProfile {
+  id             String          @id @default(cuid())
+  userId         String          @unique @map("user_id")
+  fullName       String          @map("full_name")
+  nik            String          @unique
+  phoneNumber    String          @map("phone_number")
+  phoneVerified  Boolean         @default(false) @map("phone_verified")
+  secondaryPhone String?         @map("secondary_phone")
+  npwp           String?
+  address        String?         @map("address")
+  city           String?         @map("city")
+  postalCode     String?         @map("postal_code")
+  province       String?         @map("province")
+  user           User            @relation(fields: [userId], references: [id])
+  subscriptions  Subscriptions[]
+
+  @@map("customer_profiles")
+}

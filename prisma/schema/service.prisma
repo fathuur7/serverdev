@@ -1,0 +1,40 @@
+model Package {
+  id                     String   @id @default(cuid())
+  name                   String
+  description            String?  @db.Text
+  imageUrl               String?  @map("image_url")
+  downloadSpeedMbps      Int      @map("download_speed_mbps")
+  uploadSpeedMbps        Int      @map("upload_speed_mbps")
+  monthlyPrice           Decimal  @map("monthly_price") @db.Decimal(12, 2)
+  slaPercentage          Decimal  @map("sla_percentage") @db.Decimal(5, 2)
+  contractDurationMonths Int      @map("contract_duration_months")
+  isActive               Boolean  @default(true) @map("is_active")
+
+  subscriptions Subscriptions[]
+
+  @@map("packages")
+}
+
+model Subscriptions {
+  id                      String             @id @default(cuid())
+  customerId              String             @map("customer_id")
+  packageId               String             @map("package_id")
+  serviceId               String             @unique @map("service_id")
+  installationAddressFull String             @map("installation_address_full") @db.Text
+  geoLat                  Decimal            @map("geo_lat") @db.Decimal(9, 6)
+  geoLong                 Decimal            @map("geo_long") @db.Decimal(9, 6)
+  photoHomeCustomer       String             @map("photo_home_customer")
+  status                  SubscriptionStatus @default(PENDING_INSTALL)
+  activationDate          DateTime?          @map("activation_date")
+  contractEndDate         DateTime?          @map("contract_end_date")
+
+  // Relations
+  customer    CustomerProfile @relation(fields: [customerId], references: [id])
+  package     Package         @relation(fields: [packageId], references: [id])
+  invoices    Invoice[]
+  device      Device?
+  workOrders  WorkOrder[]
+  tickets     Ticket[]
+
+  @@map("subscriptions")
+}

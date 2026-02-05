@@ -1,0 +1,91 @@
+enum Role {
+  ADMIN
+  TECHNICIAN
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLACKLISTED
+}
+
+enum SubscriptionStatus {
+  PENDING_INSTALL
+  ACTIVE
+  ISOLATED
+  TERMINATED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PortStatus {
+  CONNECTED
+  BROKEN_FAULTY
+  RESERVED
+}
+
+enum TechnicianStatus {
+  IDLE
+  ON_JOB
+  OFF_DUTY
+}
+
+enum WorkOrderType {
+  NEW_INSTALLATION
+  REPAIR
+  DISMANTLE
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum AssetLocationType {
+  WAREHOUSE
+  TECHNICIAN
+  CUSTOMER
+}
+
+enum AssetStatus {
+  NEW
+  REFURBISHED
+  BROKEN
+  IN_USE
+}
+
+enum TicketCategory {
+  NO_INTERNET
+  SLOW_CONNECTION
+  BILLING_ISSUE
+  REQUEST_MOVE
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}

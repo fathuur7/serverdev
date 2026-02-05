@@ -1,0 +1,32 @@
+model Ticket {
+  id              String         @id @default(cuid())
+  subscriptionId  String         @map("subscription_id")
+  category        TicketCategory
+  priority        TicketPriority
+  subject         String
+  description     String
+  status          TicketStatus   @default(OPEN)
+  createdByUserId String         @map("created_by_user_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  resolvedAt      DateTime?      @map("resolved_at")
+  creator         User           @relation("TicketCreator", fields: [createdByUserId], references: [id])
+  subscription    Subscriptions  @relation(fields: [subscriptionId], references: [id])
+  workOrders      WorkOrder[]
+
+  @@map("tickets")
+}
+
+model ActivityLog {
+  id          Int   @id @default(autoincrement())
+  actorUserId String   @map("actor_user_id")
+  action      String
+  targetTable String   @map("target_table")
+  targetId    String   @map("target_id")
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String   @map("ip_address")
+  timestamp   DateTime @default(now())
+  actor       User     @relation("LogActor", fields: [actorUserId], references: [id])
+
+  @@map("activity_logs")
+}

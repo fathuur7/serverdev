@@ -1,0 +1,51 @@
+model OLT {
+  id           Int    @id @default(autoincrement())
+  hostname     String
+  ipAddress    String @map("ip_address")
+  locationName String @map("location_name")
+  model        String
+  odps         ODP[]
+
+  @@map("olt")
+}
+
+model ODP {
+  id             Int           @id @default(autoincrement())
+  oltId          Int           @map("olt_id")
+  odpCode        String        @unique @map("odp_code")
+  geoLat         Decimal       @map("geo_lat") @db.Decimal(9, 6)
+  geoLong        Decimal       @map("geo_long") @db.Decimal(9, 6)
+  capacityPorts  Int           @map("capacity_ports")
+  availablePorts Int           @map("available_ports")
+  olt            OLT           @relation(fields: [oltId], references: [id])
+  portMappings   PortMapping[]
+
+  @@map("odp")
+}
+
+model Device {
+  id                  Int           @id @default(autoincrement())
+  subscriptionId      String        @unique @map("subscription_id")
+  serialNumber        String        @unique @map("serial_number")
+  macAddress          String        @map("mac_address")
+  brand               String
+  model               String
+  wifiSsidInitial     String        @map("wifi_ssid_initial")
+  wifiPasswordInitial String        @map("wifi_password_initial")
+  subscription        Subscriptions @relation(fields: [subscriptionId], references: [id])
+  portMapping         PortMapping?
+
+  @@map("devices")
+}
+
+model PortMapping {
+  odpId      Int        @map("odp_id")
+  portNumber Int        @map("port_number")
+  deviceId   Int        @unique @map("device_id")
+  status     PortStatus @default(CONNECTED)
+  device     Device     @relation(fields: [deviceId], references: [id])
+  odp        ODP        @relation(fields: [odpId], references: [id])
+
+  @@id([odpId, portNumber])
+  @@map("port_mapping")
+}

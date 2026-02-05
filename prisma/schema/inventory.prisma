@@ -1,0 +1,30 @@
+model Warehouse {
+  id              Int    @id @default(autoincrement())
+  name            String
+  locationAddress String @map("location_address")
+
+  @@map("warehouses")
+}
+
+model StockItem {
+  id       Int             @id @default(autoincrement())
+  sku      String          @unique
+  name     String
+  category String
+  unit     String
+  assets   AssetTracking[]
+
+  @@map("stock_items")
+}
+
+model AssetTracking {
+  id                  BigInt            @id @default(autoincrement())
+  stockItemId         Int               @map("stock_item_id")
+  serialNumber        String            @unique @map("serial_number")
+  currentLocationType AssetLocationType @map("current_location_type")
+  locationId          Int               @map("location_id")
+  status              AssetStatus       @default(NEW)
+  stockItem           StockItem         @relation(fields: [stockItemId], references: [id])
+
+  @@map("asset_tracking")
+}

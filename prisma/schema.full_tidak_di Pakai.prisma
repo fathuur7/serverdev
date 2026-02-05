@@ -1,0 +1,415 @@
+// generator & datasource setup
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================
+// ENUMS
+// =========================================
+
+enum Role {
+  ADMIN
+  TECHNICIAN
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLACKLISTED
+}
+
+enum SubscriptionStatus {
+  PENDING_INSTALL
+  ACTIVE
+  ISOLATED
+  TERMINATED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PortStatus {
+  CONNECTED
+  BROKEN_FAULTY
+  RESERVED
+}
+
+enum TechnicianStatus {
+  IDLE
+  ON_JOB
+  OFF_DUTY
+}
+
+enum WorkOrderType {
+  NEW_INSTALLATION
+  REPAIR
+  DISMANTLE
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum AssetLocationType {
+  WAREHOUSE
+  TECHNICIAN
+  CUSTOMER
+}
+
+enum AssetStatus {
+  NEW
+  REFURBISHED
+  BROKEN
+  IN_USE
+}
+
+enum TicketCategory {
+  NO_INTERNET
+  SLOW_CONNECTION
+  BILLING_ISSUE
+  REQUEST_MOVE
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+// =========================================
+// MODUL 1: CORE AUTH & USERS (Hybrid Role)
+// =========================================
+
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         Role       @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relasi ke Profil Spesifik
+  customerProfile   CustomerProfile?
+  technicianProfile TechnicianProfile?
+  
+  // Logging
+  activityLogs      ActivityLog[]   @relation("LogActor")
+  createdTickets    Ticket[]        @relation("TicketCreator")
+
+  @@map("users")
+}
+
+model CustomerProfile {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id])
+  
+  fullName       String   @map("full_name")
+  nik            String   @unique
+  phoneNumber    String   @map("phone_number")
+  secondaryPhone String?  @map("secondary_phone")
+  npwp           String?
+
+  // Relasi Bisnis
+  subscriptions Subscriptions[]
+
+  @@map("customer_profiles")
+}
+
+model Package {
+  id                     String   @id @default(cuid())
+  name                   String
+  description            String?  @db.Text
+  imageUrl               String?  @map("image_url")
+  downloadSpeedMbps      Int      @map("download_speed_mbps")
+  uploadSpeedMbps        Int      @map("upload_speed_mbps")
+  monthlyPrice           Decimal  @map("monthly_price") @db.Decimal(12, 2)
+  slaPercentage          Decimal  @map("sla_percentage") @db.Decimal(5, 2)
+  contractDurationMonths Int      @map("contract_duration_months")
+  isActive               Boolean  @default(true) @map("is_active")
+
+  subscriptions Subscriptions[]
+
+  @@map("packages")
+}
+
+model Subscriptions {
+  id                      Int                @id @default(autoincrement())
+  customerId              Int                @map("customer_id")
+  packageId               Int                @map("package_id")
+  serviceId               String             @unique @map("service_id")
+  installationAddressFull String             @map("installation_address_full") @db.Text
+  geoLat                  Decimal            @map("geo_lat") @db.Decimal(9, 6)
+  geoLong                 Decimal            @map("geo_long") @db.Decimal(9, 6)
+  status                  SubscriptionStatus @default(PENDING_INSTALL)
+  activationDate          DateTime?          @map("activation_date")
+  contractEndDate         DateTime?          @map("contract_end_date") // minimum 1 bulan setelah activation date
+
+  // Relasi
+  customer    CustomerProfile @relation(fields: [customerId], references: [id])
+  package     Package         @relation(fields: [packageId], references: [id])
+  invoices    Invoice[]
+  device      Device?
+  workOrders  WorkOrder[]
+  tickets     Ticket[]
+
+  @@map("subscriptions")
+}
+
+// =========================================
+// MODUL 2: BILLING & FINANCE
+// =========================================
+
+model Tax {
+  id         Int     @id @default(autoincrement())
+  name       String
+  percentage Decimal @db.Decimal(5, 2)
+
+  @@map("taxes")
+}
+
+model Discount {
+  id         Int          @id @default(autoincrement())
+  code       String       @unique
+  type       DiscountType
+  value      Decimal      @db.Decimal(12, 2)
+  validFrom  DateTime     @map("valid_from")
+  validUntil DateTime     @map("valid_until")
+
+  @@map("discounts")
+}
+
+model Invoice {
+  id             BigInt        @id @default(autoincrement())
+  subscriptionId Int           @map("subscription_id")
+  invoiceNumber  String        @unique @map("invoice_number")
+  billingPeriod  DateTime      @map("billing_period") @db.Date
+  dueDate        DateTime      @map("due_date") @db.Date
+  amountBasic    Decimal       @map("amount_basic") @db.Decimal(12, 2)
+  amountTax      Decimal       @map("amount_tax") @db.Decimal(12, 2)
+  amountDiscount Decimal       @default(0) @map("amount_discount") @db.Decimal(12, 2)
+  penaltyFee     Decimal       @default(0) @map("penalty_fee") @db.Decimal(12, 2)
+  totalAmount    Decimal       @map("total_amount") @db.Decimal(12, 2)
+  status         InvoiceStatus @default(UNPAID)
+
+  subscription Subscriptions @relation(fields: [subscriptionId], references: [id])
+  payments     Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id                  BigInt   @id @default(autoincrement())
+  invoiceId           BigInt   @map("invoice_id")
+  paymentMethod       String   @map("payment_method")
+  paymentGatewayTrxId String?  @map("payment_gateway_trx_id")
+  paidAt              DateTime @default(now()) @map("paid_at")
+  amountPaid          Decimal  @map("amount_paid") @db.Decimal(12, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+// =========================================
+// MODUL 3: INFRASTRUCTURE & NETWORK
+// =========================================
+
+model OLT {
+  id           Int    @id @default(autoincrement())
+  hostname     String
+  ipAddress    String @map("ip_address")
+  locationName String @map("location_name")
+  model        String
+
+  odps ODP[]
+
+  @@map("olt")
+}
+
+model ODP {
+  id             Int     @id @default(autoincrement())
+  oltId          Int     @map("olt_id")
+  odpCode        String  @unique @map("odp_code")
+  geoLat         Decimal @map("geo_lat") @db.Decimal(9, 6)
+  geoLong        Decimal @map("geo_long") @db.Decimal(9, 6)
+  capacityPorts  Int     @map("capacity_ports")
+  availablePorts Int     @map("available_ports")
+
+  olt          OLT           @relation(fields: [oltId], references: [id])
+  portMappings PortMapping[]
+
+  @@map("odp")
+}
+
+model Device {
+  id                  Int    @id @default(autoincrement())
+  subscriptionId      Int    @unique @map("subscription_id")
+  serialNumber        String @unique @map("serial_number")
+  macAddress          String @map("mac_address")
+  brand               String
+  model               String
+  wifiSsidInitial     String @map("wifi_ssid_initial")
+  wifiPasswordInitial String @map("wifi_password_initial")
+
+  subscription Subscriptions @relation(fields: [subscriptionId], references: [id])
+  portMapping  PortMapping?
+
+  @@map("devices")
+}
+
+model PortMapping {
+  odpId      Int        @map("odp_id")
+  portNumber Int        @map("port_number")
+  deviceId   Int        @unique @map("device_id")
+  status     PortStatus @default(CONNECTED)
+
+  odp    ODP    @relation(fields: [odpId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+
+  @@id([odpId, portNumber])
+  @@map("port_mapping")
+}
+
+// =========================================
+// MODUL 4: FIELD OPERATIONS & TECHNICIANS
+// =========================================
+
+model TechnicianProfile {
+  id             Int              @id @default(autoincrement())
+  userId         Int              @unique @map("user_id")
+  user           User             @relation(fields: [userId], references: [id])
+  
+  employeeId     String           @unique @map("employee_id")
+  fullName       String           @map("full_name")
+  phoneNumber    String           @map("phone_number")
+  specialization String
+  currentStatus  TechnicianStatus @default(IDLE) @map("current_status")
+
+  workOrders WorkOrder[]
+
+  @@map("technician_profiles")
+}
+
+model WorkOrder {
+  id                   BigInt          @id @default(autoincrement())
+  ticketId             BigInt?         @map("ticket_id")
+  subscriptionId       Int             @map("subscription_id")
+  technicianId         Int?            @map("technician_id")
+  woType               WorkOrderType   @map("wo_type")
+  scheduledTime        DateTime        @map("scheduled_time")
+  completionTime       DateTime?       @map("completion_time")
+  customerSignatureUrl String?         @map("customer_signature_url")
+  status               WorkOrderStatus @default(DRAFT)
+
+  ticket       Ticket?            @relation(fields: [ticketId], references: [id])
+  subscription Subscriptions      @relation(fields: [subscriptionId], references: [id])
+  technician   TechnicianProfile? @relation(fields: [technicianId], references: [id])
+
+  @@map("work_orders")
+}
+
+// =========================================
+// MODUL 5: INVENTORY & LOGISTICS
+// =========================================
+
+model Warehouse {
+  id              Int    @id @default(autoincrement())
+  name            String
+  locationAddress String @map("location_address") @db.Text
+
+  @@map("warehouses")
+}
+
+model StockItem {
+  id       Int    @id @default(autoincrement())
+  sku      String @unique
+  name     String
+  category String
+  unit     String
+
+  assets AssetTracking[]
+
+  @@map("stock_items")
+}
+
+model AssetTracking {
+  id                  BigInt            @id @default(autoincrement())
+  stockItemId         Int               @map("stock_item_id")
+  serialNumber        String            @unique @map("serial_number")
+  currentLocationType AssetLocationType @map("current_location_type")
+  locationId          Int               @map("location_id")
+  status              AssetStatus       @default(NEW)
+
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+
+  @@map("asset_tracking")
+}
+
+// =========================================
+// MODUL 6: SUPPORT & LOGGING
+// =========================================
+
+model Ticket {
+  id              BigInt         @id @default(autoincrement())
+  subscriptionId  Int            @map("subscription_id")
+  category        TicketCategory
+  priority        TicketPriority
+  subject         String
+  description     String         @db.Text
+  status          TicketStatus   @default(OPEN)
+  createdByUserId Int            @map("created_by_user_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  resolvedAt      DateTime?      @map("resolved_at")
+
+  subscription Subscriptions @relation(fields: [subscriptionId], references: [id])
+  creator      User          @relation("TicketCreator", fields: [createdByUserId], references: [id])
+  workOrders   WorkOrder[]
+
+  @@map("tickets")
+}
+
+model ActivityLog {
+  id          BigInt   @id @default(autoincrement())
+  actorUserId Int      @map("actor_user_id")
+  action      String
+  targetTable String   @map("target_table")
+  targetId    String   @map("target_id")
+  oldValue    Json?    @map("old_value")
+  newValue    Json?    @map("new_value")
+  ipAddress   String   @map("ip_address")
+  timestamp   DateTime @default(now())
+
+  actor User @relation("LogActor", fields: [actorUserId], references: [id])
+
+  @@map("activity_logs")
+}

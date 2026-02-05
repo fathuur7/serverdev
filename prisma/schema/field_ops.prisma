@@ -1,0 +1,71 @@
+model TechnicianProfile {
+  id             String           @id @default(cuid())
+  userId         String           @unique @map("user_id")
+  employeeId     String           @unique @map("employee_id")
+  fullName       String           @map("full_name")
+  phoneNumber    String           @map("phone_number")
+  specialization String
+  currentStatus  TechnicianStatus @default(IDLE) @map("current_status")
+  user           User             @relation(fields: [userId], references: [id])
+  workOrders     WorkOrder[]
+  attendances    Attendance[]
+
+  @@map("technician_profiles")
+}
+
+model WorkOrder {
+  id                   BigInt             @id @default(autoincrement())
+  ticketId             String?            @map("ticket_id")
+  subscriptionId       String             @map("subscription_id")
+  technicianId         String?            @map("technician_id")
+  woType               WorkOrderType      @map("wo_type")
+  scheduledTime        DateTime           @map("scheduled_time")
+  completionTime       DateTime?          @map("completion_time")
+  customerSignatureUrl String?            @map("customer_signature_url")
+  status               WorkOrderStatus    @default(DRAFT)
+  subscription         Subscriptions      @relation(fields: [subscriptionId], references: [id])
+  technician           TechnicianProfile? @relation(fields: [technicianId], references: [id])
+  ticket               Ticket?            @relation(fields: [ticketId], references: [id])
+  attendances          Attendance[]
+
+  @@map("work_orders")
+}
+
+model Attendance {
+  id            BigInt            @id @default(autoincrement())
+  technicianId  String            @map("technician_id")
+  workOrderId   BigInt?           @map("work_order_id")
+  date          DateTime          @default(now()) @db.Date
+  clockIn       DateTime?         @map("clock_in")
+  clockOut      DateTime?         @map("clock_out")
+  geoLatIn      Decimal?          @map("geo_lat_in") @db.Decimal(9, 6)
+  geoLongIn     Decimal?          @map("geo_long_in") @db.Decimal(9, 6)
+  geoLatOut     Decimal?          @map("geo_lat_out") @db.Decimal(9, 6)
+  geoLongOut    Decimal?          @map("geo_long_out") @db.Decimal(9, 6)
+  photoInUrl    String?           @map("photo_in_url")
+  photoOutUrl   String?           @map("photo_out_url")
+  status        AttendanceStatus  @default(PENDING)
+  notes         String?           @db.Text
+  isLate        Boolean           @default(false) @map("is_late")
+  workDuration  Int?              @map("work_duration") // in minutes
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  technician    TechnicianProfile @relation(fields: [technicianId], references: [userId])
+  workOrder     WorkOrder?        @relation(fields: [workOrderId], references: [id])
+
+  @@unique([technicianId, date])
+  @@index([technicianId])
+  @@index([workOrderId])
+  @@index([date])
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  PENDING      // Belum clock in
+  CHECKED_IN   // Sudah clock in, belum clock out
+  CHECKED_OUT  // Sudah clock out (normal)
+  ABSENT       // Tidak hadir
+  SICK_LEAVE   // Sakit
+  PERMISSION   // Ijin
+  HOLIDAY      // Libur
+}
