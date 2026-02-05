@@ -1,8 +1,3 @@
-// BigInt serialization fix (standard for Prisma + JSON)
-(BigInt.prototype as any).toJSON = function () {
-  return this.toString();
-};
-
 import { Elysia } from "elysia";
 import { helmet } from "elysia-helmet";
 import { logger } from "@bogeychan/elysia-logger";
