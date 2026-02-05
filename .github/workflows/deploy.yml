@@ -35,3 +35,7 @@ jobs:
             
             # Restart service
             sudo systemctl restart server-net
+
+
+
+# Note: Sesuaikan path di atas dengan path project kamu di server remote.
