@@ -2,7 +2,7 @@ name: S.Net Auto Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   deploy:
@@ -22,12 +22,12 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          proxy_command: /usr/local/bin/cloudflared access ssh --hostname %h
+          proxy_command: /usr/local/bin/cloudflared access ssh --hostname %h --id ${{ secrets.CF_CLIENT_ID }} --secret ${{ secrets.CF_CLIENT_SECRET }}
           script: |
             # Sesuai dengan hasil 'dir' kamu tadi
             cd ~/dev/serverdev 
             
-            git pull origin main
+            git pull origin master
             
             # Install & Generate Prisma (Karena ada folder prisma di dir kamu)
             /home/fathur/.bun/bin/bun install
