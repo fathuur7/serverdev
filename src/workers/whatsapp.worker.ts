@@ -60,9 +60,6 @@ async function connectToWhatsApp() {
 
             // Send test message
             try {
-                await sock.sendMessage(number_test + "@s.whatsapp.net", {
-                    text: "✅ WhatsApp is ready! (Baileys)",
-                });
                 console.log("📤 Test message sent successfully!");
             } catch (error) {
                 console.error("⚠️ Could not send test message:", error);
