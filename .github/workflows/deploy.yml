@@ -34,16 +34,18 @@ jobs:
       - name: Run Deploy Script via SSH
         shell: bash
         run: |
-          ssh -tt deploy-server 'bash -s' <<'ENDSSH'
+          ssh deploy-server 'bash -s' << 'ENDSSH'
+          set -e
           cd /home/fathur/serverdev || exit 1
-          git pull origin master
+          git fetch origin master
+          git reset --hard origin/master
           /home/fathur/.bun/bin/bun install
           /home/fathur/.bun/bin/bun x prisma generate
           sudo /usr/bin/systemctl restart snet-backend
           if systemctl is-active --quiet snet-backend; then
-            echo "✅ S.Net is UP and Running!"
+            echo "S.Net is UP and Running!"
           else
-            echo "❌ Service found but failed to start."
+            echo "Service found but failed to start."
             exit 1
           fi
           echo "Deployment S.Net berhasil pada $(date)"
