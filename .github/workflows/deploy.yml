@@ -33,22 +33,25 @@ jobs:
 
       - name: Run Deploy Script via SSH
         run: |
-              ssh deploy-server << 'EOF'
-                # 1. Masuk ke folder yang benar (tanpa /dev/)
-                cd /home/fathur/serverdev || exit 1
-                
-                # 2. Update kode dari GitHub
-                git pull origin main
-                
-                # 3. Install & Generate (Path absolut agar pasti ketemu)
-                /home/fathur/.bun/bin/bun install
-                /home/fathur/.bun/bin/bun x prisma generate
-                
-                # 4. Restart Backend S.Net (Pastikan visudo sudah diatur)
-                sudo /usr/bin/systemctl restart snet-backend
-                
-                echo "Deployment S.Net berhasil pada $(date)"
-              EOF
-
+          ssh deploy-server << 'EOF'
+            # 1. Masuk ke folder project
+            cd /home/fathur/serverdev || exit 1
+            
+            # 2. Update kode (Pastikan pakai master sesuai branch kamu)
+            git pull origin master
+            
+            # 3. Install & Generate (Path absolut)
+            /home/fathur/.bun/bin/bun install
+            /home/fathur/.bun/bin/bun x prisma generate
+            
+            # 4. Restart Backend S.Net
+            # Pastikan kamu sudah set NOPASSWD di visudo agar langkah ini tidak stuck
+            sudo /usr/bin/systemctl restart snet-backend
+            
+            # 5. Cek status (Opsional: memberi info tambahan di log GitHub)
+            systemctl is-active snet-backend && echo "S.Net is UP!"
+            
+            echo "Deployment S.Net berhasil pada $(date)"
+          EOF 
 
 # Note: Sesuaikan path di atas dengan path project kamu di server remote.
