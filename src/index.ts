@@ -30,7 +30,7 @@ const app = new Elysia()
   .use(logger())
   .use(requestContextPlugin)
   .use(swagger())
-  .get("/", () => "Hello World")
+  .get("/", () => "running...")
   .group("/api", (app) =>
     app
       .use(adminAuthRoute)
