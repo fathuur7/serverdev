@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Deploy Script via SSH
         run: |
-          ssh deploy-server << 'EOF'
+          ssh deploy-server << 'SESSION'
             # 1. Masuk ke folder project
             cd /home/fathur/serverdev || exit 1
             
@@ -44,14 +44,17 @@ jobs:
             /home/fathur/.bun/bin/bun install
             /home/fathur/.bun/bin/bun x prisma generate
             
-            # 4. Restart Backend S.Net
-            # Pastikan kamu sudah set NOPASSWD di visudo agar langkah ini tidak stuck
+            # 4. Restart Backend (GANTI 'snet-backend' jika namanya beda di /etc/systemd/system/)
             sudo /usr/bin/systemctl restart snet-backend
             
-            # 5. Cek status (Opsional: memberi info tambahan di log GitHub)
-            systemctl is-active snet-backend && echo "S.Net is UP!"
+            # 5. Cek status akhir
+            if systemctl is-active --quiet snet-backend; then
+              echo "✅ S.Net is UP and Running!"
+            else
+              echo "❌ Service found but failed to start."
+              exit 1
+            fi
             
             echo "Deployment S.Net berhasil pada $(date)"
-          EOF 
-
+          SESSION
 # Note: Sesuaikan path di atas dengan path project kamu di server remote.
