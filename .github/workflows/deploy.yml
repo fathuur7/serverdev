@@ -11,31 +11,38 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Cloudflared on Runner
+      - name: Install Cloudflared
         run: |
           curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared.deb
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          proxy_command: /usr/local/bin/cloudflared access ssh --hostname %h --id ${{ secrets.CF_CLIENT_ID }} --secret ${{ secrets.CF_CLIENT_SECRET }}
-          script: |
-            # Sesuai dengan hasil 'dir' kamu tadi
-            cd ~/dev/serverdev 
-            
-            git pull origin master
-            
-            # Install & Generate Prisma (Karena ada folder prisma di dir kamu)
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Menambahkan konfigurasi SSH agar otomatis pakai Cloudflared
+          cat <<EOF > ~/.ssh/config
+          Host deploy-server
+            HostName ${{ secrets.REMOTE_HOST }}
+            User ${{ secrets.REMOTE_USER }}
+            IdentityFile ~/.ssh/id_ed25519
+            ProxyCommand /usr/bin/cloudflared access ssh --hostname %h
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Run Deploy Script via SSH
+        run: |
+          ssh deploy-server << 'EOF'
+            cd ~/dev/serverdev
+            git pull origin main
             /home/fathur/.bun/bin/bun install
             /home/fathur/.bun/bin/bunx prisma generate
             
-            # Restart service
-            sudo systemctl restart server-net
-
+            # Gunakan sudo jika perlu, pastikan user 'fathur' punya akses NOPASSWD di sudoers
+            sudo systemctl restart snet-backend
+            echo "Deployment successful at $(date)"
+          EOF
 
 
 # Note: Sesuaikan path di atas dengan path project kamu di server remote.
