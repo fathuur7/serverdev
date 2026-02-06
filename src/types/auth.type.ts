@@ -20,6 +20,8 @@ export type CustomerProfileType = {
     province?: string;
     postalCode?: string;
     phoneVerified?: boolean;
+    district?: string;
+    subDistrict?: string;
 }
 
 export type CreateProfileBody = Omit<CustomerProfileType, "userId">;
@@ -42,6 +44,8 @@ export type CustomerProfileInput = {
     province?: string;
     postalCode?: string;
     phoneVerified?: boolean;
+    district?: string;
+    subDistrict?: string;
 };
 
 export type UpdateProfileInput = Partial<CustomerProfileInput>;

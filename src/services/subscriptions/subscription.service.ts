@@ -17,6 +17,7 @@ export {
 export {
     activateSubscription,
     isolateSubscription,
+    reactivateSubscription,
     terminateSubscription,
     isolateOverdueSubscriptions,
 } from "./subscription.lifecycle";
@@ -39,6 +40,8 @@ export class SubscriptionService {
     // Lifecycle
     activate = lifecycle.activateSubscription;
     isolate = lifecycle.isolateSubscription;
+    reactivate = lifecycle.reactivateSubscription;
     terminate = lifecycle.terminateSubscription;
     isolateOverdueSubscriptions = lifecycle.isolateOverdueSubscriptions;
 }
+

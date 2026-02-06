@@ -50,6 +50,8 @@ export const createCustomerProfileSchema = t.Object({
     province: t.Optional(t.String({ maxLength: 100 })),
     postalCode: t.Optional(t.String({ minLength: 5, maxLength: 10 })),
     phoneVerified: t.Optional(t.Boolean()),
+    district: t.Optional(t.String({ maxLength: 100 })),
+    subDistrict: t.Optional(t.String({ maxLength: 100 })),
 });
 
 // Customer Profile (Update)
@@ -60,8 +62,13 @@ export const updateCustomerProfileSchema = t.Object({
     secondaryPhone: t.Optional(t.String({ minLength: 10, maxLength: 15 })),
     npwp: t.Optional(t.String({ minLength: 15, maxLength: 16 })),
     address: t.Optional(t.String({ minLength: 5, maxLength: 500 })),
-    city: t.Optional(t.String({ maxLength: 100 })),
+
+    // Penambahan hirarki alamat
     province: t.Optional(t.String({ maxLength: 100 })),
+    city: t.Optional(t.String({ maxLength: 100 })), // Kota/Kabupaten
+    district: t.Optional(t.String({ maxLength: 100 })), // Kecamatan
+    subDistrict: t.Optional(t.String({ maxLength: 100 })), // Kelurahan/Desa
+
     postalCode: t.Optional(t.String({ minLength: 5, maxLength: 10 })),
     phoneVerified: t.Optional(t.Boolean()),
 });

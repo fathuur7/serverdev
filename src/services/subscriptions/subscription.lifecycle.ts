@@ -1,12 +1,13 @@
 import prisma from "../../utils/prisma";
 import { calculateContractEndDate } from "../../utils/subscription.utils";
+import { NotificationService } from "../notifications/notification.service";
 
 
 
 
 /**
  * Lifecycle Operations for Subscriptions
- * (activate, isolate, terminate, batch operations)
+ * (activate, isolate, terminate, reactivate, batch operations)
  */
 
 /**
@@ -77,6 +78,41 @@ export async function isolateSubscription(id: string) {
 }
 
 /**
+ * Reactivate subscription (after payment)
+ */
+export async function reactivateSubscription(id: string) {
+    const subscription = await prisma.subscriptions.findUnique({
+        where: { id },
+    });
+
+    if (!subscription) {
+        throw new Error("Subscription not found");
+    }
+
+    if (subscription.status !== "ISOLATED") {
+        throw new Error(
+            `Cannot reactivate: current status is ${subscription.status}`
+        );
+    }
+
+    const updated = await prisma.subscriptions.update({
+        where: { id },
+        data: { status: "ACTIVE" },
+        include: {
+            customer: true,
+            package: true,
+        },
+    });
+
+    // Send reactivation notification
+    NotificationService.sendReactivationNotice(id).catch(err => {
+        console.error("Failed to send reactivation notification:", err);
+    });
+
+    return updated;
+}
+
+/**
  * Terminate subscription permanently
  */
 export async function terminateSubscription(id: string) {
@@ -105,6 +141,7 @@ export async function terminateSubscription(id: string) {
 /**
  * [CRON Task B] Isolate subscriptions with overdue unpaid invoices
  * Runs daily at 00:01 AM
+ * Also sends isolation notifications
  */
 export async function isolateOverdueSubscriptions(): Promise<{
     isolated: number;
@@ -124,19 +161,18 @@ export async function isolateOverdueSubscriptions(): Promise<{
         },
     });
 
-    // Get unique subscription IDs that are still ACTIVE
-    const subscriptionIds = [
-        ...new Set(
-            overdueInvoices
-                .filter((inv) => inv.subscription.status === "ACTIVE")
-                .map((inv) => inv.subscriptionId)
-        ),
-    ];
+    // Get unique subscriptions that are still ACTIVE with their invoices
+    const activeOverdueMap = new Map<string, typeof overdueInvoices[0]>();
+    for (const inv of overdueInvoices) {
+        if (inv.subscription.status === "ACTIVE" && !activeOverdueMap.has(inv.subscriptionId)) {
+            activeOverdueMap.set(inv.subscriptionId, inv);
+        }
+    }
 
     let isolated = 0;
     const errors: string[] = [];
 
-    for (const subId of subscriptionIds) {
+    for (const [subId, invoice] of activeOverdueMap) {
         try {
             await prisma.subscriptions.update({
                 where: { id: subId },
@@ -144,6 +180,11 @@ export async function isolateOverdueSubscriptions(): Promise<{
             });
             isolated++;
             console.log(`🔒 Isolated subscription ${subId} due to overdue invoice`);
+
+            // Send isolation notification
+            NotificationService.sendIsolationNotice(subId, invoice).catch(err => {
+                console.error(`Failed to send isolation notification for ${subId}:`, err);
+            });
         } catch (error) {
             const msg = `Failed to isolate ${subId}: ${(error as Error).message}`;
             errors.push(msg);
@@ -153,3 +194,4 @@ export async function isolateOverdueSubscriptions(): Promise<{
 
     return { isolated, errors };
 }
+

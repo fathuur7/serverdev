@@ -43,6 +43,9 @@ model CustomerProfile {
   city           String?         @map("city")
   postalCode     String?         @map("postal_code")
   province       String?         @map("province")
+  subDistrict    String?         @map("sub_district")
+  district       String?         @map("district")
+  
   user           User            @relation(fields: [userId], references: [id])
   subscriptions  Subscriptions[]
 

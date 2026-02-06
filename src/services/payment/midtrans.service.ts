@@ -5,6 +5,7 @@
 
 import prisma from "../../utils/prisma";
 import { activateSubscription } from "../subscriptions/subscription.lifecycle";
+import { NotificationService } from "../notifications/notification.service";
 import type { SnapTransactionResponse, MidtransNotification } from "../../types/payment.types";
 
 /**
@@ -153,7 +154,7 @@ export async function handleMidtransNotification(notification: MidtransNotificat
             const gatewayTrxId = (notification as any).transaction_id || (notification as any).approval_code || '';
             const paidAt = (notification as any).settlement_time ? new Date((notification as any).settlement_time) : new Date();
 
-            await tx.payment.create({
+            const payment = await tx.payment.create({
                 data: {
                     invoiceId: invoice.id,
                     amountPaid: Number(notification.gross_amount),
@@ -163,6 +164,11 @@ export async function handleMidtransNotification(notification: MidtransNotificat
                 }
             });
             console.log(`💰 Payment record created for Invoice ${order_id}`);
+
+            // Send payment success notification
+            NotificationService.sendPaymentSuccess(invoice, payment).catch(err => {
+                console.error(`Failed to send payment success notification for ${order_id}:`, err);
+            });
         }
 
         return inv;

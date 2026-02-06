@@ -1,6 +1,7 @@
 import { AuthService } from "../services/auth";
 import { Context } from "elysia";
 import type { RegisterType, LoginType, CreateProfileBody } from "../types/auth.type"
+import { validateNik } from "../utils/nik-validator";
 
 export class AuthController {
     private authService: AuthService;
@@ -117,7 +118,14 @@ export class AuthController {
                 set.status = 401;
                 return { success: false, message: "Unauthorized" };
             }
-            const { fullName, nik, phoneNumber, secondaryPhone, npwp, address, city, province, postalCode, phoneVerified } = body as CreateProfileBody;
+            const { fullName, nik, phoneNumber, secondaryPhone, npwp, address, city, province, postalCode, phoneVerified, district, subDistrict } = body as CreateProfileBody;
+
+            // Validate NIK format
+            const nikValidation = validateNik(nik);
+            if (!nikValidation.valid) {
+                set.status = 400;
+                return { success: false, message: nikValidation.message };
+            }
 
             const profile = await this.authService.customerProfile(userId, {
                 fullName,
@@ -130,6 +138,8 @@ export class AuthController {
                 province,
                 postalCode,
                 phoneVerified,
+                district,
+                subDistrict,
             });
 
             set.status = 201;
