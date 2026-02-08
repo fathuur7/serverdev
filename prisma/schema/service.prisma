@@ -28,9 +28,9 @@ model Subscriptions {
   activationDate          DateTime?          @map("activation_date")
   contractEndDate         DateTime?          @map("contract_end_date")
 
-  // Relations
-  customer    CustomerProfile @relation(fields: [customerId], references: [id])
-  package     Package         @relation(fields: [packageId], references: [id])
+  // Relations (SUB-004: Prevent orphan FK with Restrict)
+  customer    CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  package     Package         @relation(fields: [packageId], references: [id], onDelete: Restrict)
   invoices    Invoice[]
   device      Device?
   workOrders  WorkOrder[]

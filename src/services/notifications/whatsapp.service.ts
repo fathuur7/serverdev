@@ -1,20 +1,28 @@
 import Redis from "ioredis";
+import { publishWithRetry } from "../../utils/redis-retry";
 
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
 export class WhatsAppService {
     /**
      * Send WhatsApp Message via Worker
+     * INT-001: Now with Redis retry and graceful degradation
      * @param to Phone number (e.g. 08123456789)
      * @param text Message text
      */
     static async sendMessage(to: string, text: string): Promise<void> {
         try {
             const payload = JSON.stringify({ to, text });
-            await redis.publish("whatsapp:send", payload);
-            console.log(`📨 Queued WhatsApp message to ${to}`);
+            const success = await publishWithRetry(redis, "whatsapp:send", payload);
+
+            if (success) {
+                console.log(`📨 Queued WhatsApp message to ${to}`);
+            } else {
+                console.error(`⚠️ Failed to queue WhatsApp message to ${to} (Redis unavailable)`);
+                // TODO: Implement fallback queue (e.g., database-backed queue)
+            }
         } catch (error) {
-            console.error("❌ Failed to queue WhatsApp message:", error);
+            console.error("❌ Unexpected error in sendMessage:", error);
         }
     }
 

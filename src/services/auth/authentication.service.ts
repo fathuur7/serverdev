@@ -75,9 +75,23 @@ export class AuthenticationService {
     }
 
     /**
-     * Verify OTP
+     * Verify OTP (with brute force protection)
      */
     async verifyOtp(email: string, otp: string) {
+        // Rate limit for OTP verification attempts (brute force protection)
+        const otpAttemptKey = `otp:attempt:${email}`;
+        const attempts = await redis.incr(otpAttemptKey);
+
+        if (attempts === 1) {
+            await redis.expire(otpAttemptKey, 900); // 15 minutes lockout
+        }
+
+        if (attempts > 5) {
+            const ttl = await redis.ttl(otpAttemptKey);
+            const minutes = Math.ceil(ttl / 60);
+            throw new Error(`Terlalu banyak percobaan OTP salah. Tunggu ${minutes} menit lagi.`);
+        }
+
         const user = await prisma.user.findUnique({
             where: { email },
         });
@@ -103,6 +117,9 @@ export class AuthenticationService {
         if (!isValid) {
             throw new Error("Invalid OTP");
         }
+
+        // OTP valid - clear attempt counter
+        await redis.del(otpAttemptKey);
 
         // Mark email as verified, clear OTP
         await prisma.user.update({

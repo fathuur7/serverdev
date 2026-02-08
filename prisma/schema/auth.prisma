@@ -45,7 +45,6 @@ model CustomerProfile {
   province       String?         @map("province")
   subDistrict    String?         @map("sub_district")
   district       String?         @map("district")
-  
   user           User            @relation(fields: [userId], references: [id])
   subscriptions  Subscriptions[]
 

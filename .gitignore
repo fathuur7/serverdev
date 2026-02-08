@@ -5,6 +5,9 @@ baileys_auth
 
 .env
 
+# folder test
+tests/
+
 # dependencies
 /node_modules
 /.pnp

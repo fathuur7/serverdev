@@ -24,6 +24,11 @@ export async function activateSubscription(id: string) {
         throw new Error("Subscription not found");
     }
 
+    // SUB-008: Cannot reactivate TERMINATED subscription
+    if (subscription.status === "TERMINATED") {
+        throw new Error("Layanan sudah diputus. Tidak dapat diaktifkan kembali.");
+    }
+
     if (subscription.status !== "PENDING_INSTALL") {
         throw new Error(
             `Cannot activate: current status is ${subscription.status}`
@@ -51,10 +56,16 @@ export async function activateSubscription(id: string) {
 
 /**
  * Isolate subscription (due to unpaid bills, etc.)
+ * SUB-009: Must have overdue invoice to isolate
  */
 export async function isolateSubscription(id: string) {
     const subscription = await prisma.subscriptions.findUnique({
         where: { id },
+        include: {
+            invoices: {
+                where: { status: "UNPAID" }
+            }
+        }
     });
 
     if (!subscription) {
@@ -65,6 +76,20 @@ export async function isolateSubscription(id: string) {
         throw new Error(
             `Cannot isolate: current status is ${subscription.status}`
         );
+    }
+
+    // SUB-009: Check for overdue invoices before isolation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const hasOverdueInvoice = subscription.invoices.some(inv => {
+        const dueDate = new Date(inv.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+    });
+
+    if (!hasOverdueInvoice) {
+        throw new Error("Tidak dapat mengisolasi layanan karena tidak ada tagihan yang belum dibayar atau jatuh tempo.");
     }
 
     return await prisma.subscriptions.update({

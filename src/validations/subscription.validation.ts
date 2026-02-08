@@ -2,17 +2,18 @@ import { t } from "elysia";
 
 /**
  * Validation schemas for Subscription endpoints
+ * Note: Elysia TypeBox strips extra fields by default
  */
 
 export const createSubscriptionSchema = t.Object({
     customerId: t.String({ minLength: 1 }),
     packageId: t.String({ minLength: 1 }),
-    installationAddressFull: t.String({ minLength: 1 }),
+    installationAddressFull: t.String({ minLength: 1, maxLength: 1000 }),
     geoLat: t.Number({ minimum: -90, maximum: 90 }),
     geoLong: t.Number({ minimum: -180, maximum: 180 }),
     photoHomeCustomer: t.String({ minLength: 1 }),
     activationDate: t.Optional(t.String()),
-});
+}, { additionalProperties: false });
 
 export const updateSubscriptionSchema = t.Partial(
     t.Object({

@@ -114,12 +114,28 @@ export class SubscriptionController {
         }
     };
 
-    // GET subscription by ID
-    getById = async ({ params, set }: Context) => {
+    // GET subscription by ID (with ownership check)
+    getById = async ({ params, userId, role, set }: Context & { userId?: string; role?: string }) => {
         try {
             const subscription = await this.subscriptionService.getById(
                 (params as any).id
             );
+
+            // Admin & Technician can view any subscription
+            if (role === "ADMIN" || role === "TECHNICIAN") {
+                return { success: true, data: subscription };
+            }
+
+            // Customer: Check ownership
+            const customerProfile = await prisma.customerProfile.findUnique({
+                where: { userId: userId }
+            });
+
+            if (!customerProfile || subscription.customerId !== customerProfile.id) {
+                set.status = 403;
+                return { success: false, message: "Forbidden: Not your subscription" };
+            }
+
             return { success: true, data: subscription };
         } catch (error) {
             set.status = 404;

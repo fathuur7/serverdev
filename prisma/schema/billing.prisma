@@ -29,6 +29,7 @@ model Invoice {
   penaltyFee     Decimal       @default(0) @map("penalty_fee") @db.Decimal(12, 2)
   totalAmount    Decimal       @map("total_amount") @db.Decimal(12, 2)
   status         InvoiceStatus @default(UNPAID)
+  version        Int           @default(0)  // Optimistic locking for race condition prevention
   subscription   Subscriptions @relation(fields: [subscriptionId], references: [id])
   payments       Payment[]
 

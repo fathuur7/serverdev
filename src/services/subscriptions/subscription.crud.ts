@@ -131,6 +131,19 @@ export async function upgradeSubscription(userId: string, data: { subscriptionId
 
         if (!newPkg || !newPkg.isActive) throw new Error("Paket tidak ditemukan atau tidak aktif");
 
+        // SUB-005: Prevent upgrade to same package
+        if (oldSub.packageId === data.newPackageId) {
+            throw new Error("Anda sudah menggunakan paket ini. Pilih paket yang berbeda.");
+        }
+
+        // SUB-006: Prevent downgrade - only allow upgrade to more expensive package
+        const oldPrice = Number(oldSub.package.monthlyPrice);
+        const newPrice = Number(newPkg.monthlyPrice);
+
+        if (newPrice < oldPrice) {
+            throw new Error(`Tidak dapat downgrade ke paket yang lebih murah. Paket saat ini: Rp ${oldPrice.toLocaleString('id-ID')}/bulan`);
+        }
+
         // 1. Batalkan invoice perpanjangan yang menggantung (H-7 logic)
         const pendingMonthlyInvoice = await tx.invoice.findFirst({
             where: {

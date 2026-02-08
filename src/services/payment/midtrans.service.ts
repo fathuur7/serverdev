@@ -4,7 +4,6 @@
  */
 
 import prisma from "../../utils/prisma";
-import { activateSubscription } from "../subscriptions/subscription.lifecycle";
 import { NotificationService } from "../notifications/notification.service";
 import type { SnapTransactionResponse, MidtransNotification } from "../../types/payment.types";
 
@@ -102,9 +101,53 @@ export async function createSnapTransaction(invoiceId: string): Promise<SnapTran
 }
 
 /**
+ * Verify Midtrans webhook signature
+ * Formula: SHA512(order_id + status_code + gross_amount + server_key)
+ * Returns true if signature is valid
+ */
+export function verifySignature(notification: MidtransNotification): boolean {
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+
+    if (!serverKey) {
+        console.error('MIDTRANS_SERVER_KEY not configured');
+        return false;
+    }
+
+    const { order_id, status_code, gross_amount, signature_key } = notification;
+
+    if (!signature_key) {
+        console.error('Missing signature_key in notification');
+        return false;
+    }
+
+    // Midtrans signature formula: SHA512(order_id + status_code + gross_amount + server_key)
+    const payload = order_id + status_code + gross_amount + serverKey;
+    const hasher = new Bun.CryptoHasher("sha512");
+    hasher.update(payload);
+    const expectedSignature = hasher.digest("hex");
+
+    const isValid = signature_key === expectedSignature;
+
+    if (!isValid) {
+        console.error(`⚠️ Invalid webhook signature for order ${order_id}`);
+        console.error(`Expected: ${expectedSignature}`);
+        console.error(`Received: ${signature_key}`);
+    }
+
+    return isValid;
+}
+
+/**
  * Handle Midtrans Webhook Notification
+ * PAY-005: Now includes signature verification
  */
 export async function handleMidtransNotification(notification: MidtransNotification) {
+    // CRITICAL: Verify signature first
+    if (!verifySignature(notification)) {
+        console.error('❌ Webhook signature verification failed!');
+        return { success: false, message: 'Invalid signature' };
+    }
+
     const { transaction_status, order_id, fraud_status } = notification;
 
     // Find invoice by order_id (which is invoiceNumber)
@@ -138,21 +181,37 @@ export async function handleMidtransNotification(notification: MidtransNotificat
         newStatus = 'CANCELLED';
     }
 
-    // Update invoice status
+    // PAY-004: Update invoice with OPTIMISTIC LOCKING to prevent race condition
     const updatedInvoice = await prisma.$transaction(async (tx) => {
-        // 1. Update Invoice
-        const inv = await tx.invoice.update({
-            where: { id: invoice.id },
+        // 1. Atomic update with version check (optimistic locking)
+        const updateResult = await tx.invoice.updateMany({
+            where: {
+                id: invoice.id,
+                status: 'UNPAID',           // Only update if still UNPAID
+                version: invoice.version    // And version matches (no concurrent update)
+            },
             data: {
                 status: newStatus,
+                version: { increment: 1 }   // Increment version on update
             }
         });
 
-        // 2. If PAID, create Payment record
-        if (newStatus === 'PAID') {
-            const paymentMethod = (notification as any).payment_type || 'unknown_midtrans';
-            const gatewayTrxId = (notification as any).transaction_id || (notification as any).approval_code || '';
-            const paidAt = (notification as any).settlement_time ? new Date((notification as any).settlement_time) : new Date();
+        // If no rows updated, another request already processed this invoice
+        if (updateResult.count === 0) {
+            console.log(`⏭️ Invoice ${order_id} already processed by another request`);
+            return null;  // Return null to indicate duplicate/race condition
+        }
+
+        // 2. Fetch the updated invoice
+        const inv = await tx.invoice.findUnique({
+            where: { id: invoice.id }
+        });
+
+        // 3. If PAID, create Payment record
+        if (newStatus === 'PAID' && inv) {
+            const paymentMethod = notification.payment_type || 'unknown_midtrans';
+            const gatewayTrxId = notification.transaction_id || notification.approval_code || '';
+            const paidAt = notification.settlement_time ? new Date(notification.settlement_time) : new Date();
 
             const payment = await tx.payment.create({
                 data: {
@@ -173,6 +232,11 @@ export async function handleMidtransNotification(notification: MidtransNotificat
 
         return inv;
     });
+
+    // Handle race condition case
+    if (!updatedInvoice) {
+        return { success: true, message: 'Invoice already processed', duplicate: true };
+    }
 
     // If paid and subscription is PENDING_INSTALL, auto-create WorkOrder for installation
     if (newStatus === 'PAID' && invoice.subscription?.status === 'PENDING_INSTALL') {

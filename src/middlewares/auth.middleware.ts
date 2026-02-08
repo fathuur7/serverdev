@@ -5,7 +5,7 @@ import { jwt } from "@elysiajs/jwt";
  */
 export const jwtPlugin = jwt({
     name: "jwt",
-    secret: process.env.JWT_SECRET || "s3cr3t",
+    secret: process.env.JWT_SECRET || "",
 });
 
 /**

@@ -154,8 +154,20 @@ redisSubscriber.on("message", async (channel, message) => {
                 return;
             }
 
+            // Normalize phone number to international format (62xxx)
+            let normalizedTo = to;
+            if (!to.includes("@")) {
+                let digits = to.replace(/\D/g, "");
+                if (digits.startsWith("0")) {
+                    digits = "62" + digits.slice(1);
+                } else if (digits.startsWith("8")) {
+                    digits = "62" + digits;
+                }
+                normalizedTo = digits;
+            }
+
             // Format number correctly
-            const formattedTo = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+            const formattedTo = normalizedTo.includes("@") ? normalizedTo : `${normalizedTo}@s.whatsapp.net`;
 
             console.log(`📤 Sending message to ${formattedTo}: ${text}`);
             await socket.sendMessage(formattedTo, { text });

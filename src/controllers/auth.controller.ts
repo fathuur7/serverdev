@@ -288,9 +288,9 @@ export class AuthController {
         }
     };
 
-    changeUserRole = async ({ params, body, set }: Context) => {
+    changeUserRole = async ({ params, body, set, userId, request }: Context & { userId?: string }) => {
         try {
-            const userId = (params as any).id as string;
+            const targetUserId = (params as any).id as string;
             const { role } = body as { role: "ADMIN" | "CUSTOMER" | "TECHNICIAN" };
 
             if (!role) {
@@ -298,7 +298,30 @@ export class AuthController {
                 return { success: false, message: "Role is required" };
             }
 
-            const result = await this.authService.changeUserRole(userId, role);
+            // Get old role for audit log
+            const oldUser = await this.authService.getUser().then(users =>
+                users.find((u: any) => u.id === targetUserId)
+            );
+
+            const result = await this.authService.changeUserRole(targetUserId, role);
+
+            // Audit log for role change (CRITICAL security action)
+            const { logActivity } = await import('../services/logs/activitylog.service');
+            const { sanitizeForLogging } = await import('../utils/serialize');
+            const ipAddress = request.headers.get('x-forwarded-for') ||
+                request.headers.get('x-real-ip') ||
+                'unknown';
+
+            await logActivity({
+                actorUserId: userId!,  // Admin who made the change
+                action: 'CHANGE_USER_ROLE',
+                targetTable: 'User',
+                targetId: targetUserId,
+                oldValue: sanitizeForLogging({ role: oldUser?.role }),
+                newValue: sanitizeForLogging({ role: role }),
+                ipAddress,
+            }).catch(err => console.error('Failed to log CHANGE_USER_ROLE:', err));
+
             return {
                 success: true,
                 message: result.message,
