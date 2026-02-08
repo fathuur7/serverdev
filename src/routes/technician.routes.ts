@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { TechnicianService } from "../services/technicians/technician.service";
+import { technicianLoginController } from "../controllers/technician-auth.controller";
 import { jwtPlugin, deriveUser, adminOnly, adminOrTechnician, authenticated } from "../middlewares/auth.middleware";
 
 const technicianService = new TechnicianService();
@@ -20,43 +21,22 @@ export const technicianRoutes = new Elysia({ prefix: "/technicians" })
     .use(jwtPlugin)
     .derive(deriveUser)
 
-    // Create technician (Admin only)
-    .post(
-        "/",
-        async ({ body, set }: any) => {
-            try {
-                const result = await technicianService.create(body);
-                set.status = 201;
-                return {
-                    success: true,
-                    message: "Technician created successfully",
-                    data: {
-                        id: result.technician.id,
-                        employeeId: result.technician.employeeId,
-                        fullName: result.technician.fullName,
-                        email: result.user.email,
-                    }
-                };
-            } catch (error: any) {
-                set.status = 400;
-                return {
-                    success: false,
-                    message: error.message || "Failed to create technician"
-                };
-            }
+    /**
+     * POST /technicians/login
+     * Technician login (Public)
+     */
+    .post("/login", technicianLoginController.login, {
+        body: t.Object({
+            email: t.String(),
+            password: t.String(),
+        }),
+        detail: {
+            tags: ["Technician Auth"],
+            summary: "Technician login",
+            description: "Login endpoint for technician app",
         },
-        {
-            beforeHandle: adminOnly,
-            body: t.Object({
-                email: t.String({ format: "email" }),
-                password: t.String({ minLength: 6 }),
-                employeeId: t.String({ minLength: 1 }),
-                fullName: t.String({ minLength: 1 }),
-                phoneNumber: t.String({ minLength: 10 }),
-                specialization: t.String({ minLength: 1 }),
-            }),
-        }
-    )
+    })
+
 
     // Get all technicians (Admin only)
     .get(

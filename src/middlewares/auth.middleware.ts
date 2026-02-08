@@ -16,9 +16,7 @@ export const deriveUser = async ({ jwt, headers: { authorization } }: any) => {
         return {};
     }
     const token = authorization.slice(7);
-    console.time("jwt-verify");
     const profile = await jwt.verify(token);
-    console.timeEnd("jwt-verify");
     if (!profile) {
         return {};
     }

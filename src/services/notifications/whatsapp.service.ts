@@ -166,5 +166,35 @@ export class WhatsAppService {
 
         await this.sendMessage(to, message);
     }
+
+    /**
+     * Send Technician Credentials
+     * Sends login credentials to newly registered technician
+     */
+    static async sendTechnicianCredentials(
+        to: string,
+        fullName: string,
+        email: string,
+        password: string,
+        employeeId: string
+    ): Promise<void> {
+        if (!to) return;
+
+        const message = `*Selamat Datang di SwiftConnect* 🎉\n\n` +
+            `Halo *${fullName}*,\n\n` +
+            `Akun teknisi Anda telah berhasil dibuat!\n\n` +
+            `📋 *Detail Akun:*\n` +
+            `🔹 Employee ID: ${employeeId}\n` +
+            `🔹 Email: ${email}\n` +
+            `🔹 Password: ${password}\n\n` +
+            `⚠️ *PENTING:*\n` +
+            `• Jangan bagikan kredensial Anda kepada siapapun\n\n` +
+            `Silakan login melalui aplikasi teknisi menggunakan email dan password di atas.\n\n` +
+            `Jika ada pertanyaan, hubungi admin.\n` +
+            `Terima kasih! 🚀`;
+
+        await this.sendMessage(to, message);
+    }
 }
+
 
