@@ -41,13 +41,33 @@ jobs:
           git reset --hard origin/master
           /home/fathur/.bun/bin/bun install
           /home/fathur/.bun/bin/bun x prisma generate
-          sudo /usr/bin/systemctl restart snet-backend
-          if systemctl is-active --quiet snet-backend; then
-            echo "S.Net is UP and Running!"
-          else
-            echo "Service found but failed to start."
-            exit 1
+          
+          # Install systemd service if it doesn't exist
+          if [ ! -f /etc/systemd/system/snet-backend.service ]; then
+            echo "Installing systemd service..."
+            sudo cp snet-backend.service /etc/systemd/system/snet-backend.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable snet-backend
           fi
+          
+          # Restart the service
+          sudo /usr/bin/systemctl restart snet-backend
+          
+          # Wait for service to start with retry logic
+          echo "Waiting for service to start..."
+          for i in {1..10}; do
+            if systemctl is-active --quiet snet-backend; then
+              echo "S.Net is UP and Running!"
+              break
+            fi
+            if [ $i -eq 10 ]; then
+              echo "Service failed to start after 10 attempts. Checking status..."
+              sudo systemctl status snet-backend --no-pager || true
+              exit 1
+            fi
+            echo "Attempt $i: Service not ready yet, waiting..."
+            sleep 2
+          done
           echo "Deployment S.Net berhasil pada $(date)"
           ENDSSH
 # Note: Sesuaikan path di atas dengan path project kamu di server remote.
