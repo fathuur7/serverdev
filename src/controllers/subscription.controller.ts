@@ -96,6 +96,70 @@ export class SubscriptionController {
         }
     };
 
+    /**
+     * GET my upcoming invoice (for home page reminder)
+     */
+    getMyUpcomingInvoice = async ({ userId, set }: Context & { userId?: string }) => {
+        try {
+            // Get customer profile
+            const customerProfile = await prisma.customerProfile.findUnique({
+                where: { userId: userId }
+            });
+
+            if (!customerProfile) {
+                set.status = 404;
+                return { success: false, message: "Customer profile not found" };
+            }
+
+            // Get active or isolated subscription
+            const subscription = await prisma.subscriptions.findFirst({
+                where: {
+                    customerId: customerProfile.id,
+                    status: { in: ['ACTIVE', 'ISOLATED'] }
+                },
+                include: { package: true }
+            });
+
+            if (!subscription) {
+                return { success: true, data: null };
+            }
+
+            // Get next unpaid invoice
+            const invoice = await prisma.invoice.findFirst({
+                where: {
+                    subscriptionId: subscription.id,
+                    status: 'UNPAID'
+                },
+                orderBy: { dueDate: 'asc' },
+                take: 1
+            });
+
+            if (!invoice) {
+                return { success: true, data: null };
+            }
+
+            // Calculate days until due
+            const dueDate = new Date(invoice.dueDate);
+            const now = new Date();
+            const diffTime = dueDate.getTime() - now.getTime();
+            const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            return {
+                success: true,
+                data: {
+                    invoiceNumber: invoice.invoiceNumber,
+                    dueDate: invoice.dueDate,
+                    totalAmount: invoice.totalAmount,
+                    packageName: subscription.package.name,
+                    daysUntilDue: daysUntilDue
+                }
+            };
+        } catch (error) {
+            set.status = 400;
+            return { success: false, message: (error as Error).message };
+        }
+    };
+
     // GET all subscriptions with pagination
     getAll = async ({ query, set }: Context) => {
         try {

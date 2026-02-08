@@ -24,6 +24,9 @@ export const SubscriptionRoutes = new Elysia({ prefix: "/subscriptions" })
     .get("/me", subscriptionController.getMySubscriptions, {
         beforeHandle: authenticated,
     })
+    .get("/my-upcoming-invoice", subscriptionController.getMyUpcomingInvoice, {
+        beforeHandle: authenticated,
+    })
     .get("/", subscriptionController.getAll, {
         beforeHandle: adminOnly,
         query: subscriptionQuerySchema,
